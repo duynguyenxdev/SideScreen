@@ -153,7 +153,7 @@ class StreamClient(
         }
 
     sealed class WirelessConnectError(msg: String) : Exception(msg) {
-        object NetworkUnreachable : WirelessConnectError("Mac unreachable — check both on same WiFi")
+        object NetworkUnreachable : WirelessConnectError("Computer unreachable — check both on same WiFi")
 
         object TokenRejected : WirelessConnectError("Token rejected — re-pair required")
 
@@ -171,7 +171,7 @@ class StreamClient(
         object CodeRejected : PairingError("Pairing code not accepted")
 
         /** The Mac runs a version that predates code pairing. */
-        object HostTooOld : PairingError("Update Side Screen on the Mac to use code pairing")
+        object HostTooOld : PairingError("Update Side Screen on the computer to use code pairing")
     }
 
     data class PairingSuccess(val token: ByteArray, val macName: String)

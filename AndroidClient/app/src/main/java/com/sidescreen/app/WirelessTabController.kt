@@ -164,15 +164,15 @@ class WirelessTabController(
         val cached = storage.load()
         when (error) {
             is StreamClient.WirelessConnectError.NetworkUnreachable -> {
-                views.repairTitle.text = "⚠ Couldn't reach Mac"
+                views.repairTitle.text = "⚠ Couldn't reach computer"
                 views.repairMessage.text =
                     if (cached != null) {
                         "No response from ${cached.macName} at ${cached.host}:${cached.port}.\n\n" +
-                            "The Mac may have switched WiFi networks, changed its port, or is not " +
-                            "running. Open SideScreen on the Mac and scan the new QR to re-pair."
+                            "The computer may have switched WiFi networks, changed its port, or is not " +
+                            "running. Open Side Screen on the computer and scan the new QR to re-pair."
                     } else {
-                        "No response from your Mac. Make sure both devices are on the same WiFi " +
-                            "and the Mac app is running, then scan the QR again."
+                        "No response from your computer. Make sure both devices are on the same WiFi " +
+                            "and the desktop app is running, then scan the QR again."
                     }
                 transition(State.REPAIR_NEEDED)
             }
@@ -183,13 +183,13 @@ class WirelessTabController(
                         "${cached.macName} reset its pairing token (e.g. Reset Token clicked, or " +
                             "reinstalled). Scan the new QR to pair again."
                     } else {
-                        "The Mac reset its pairing token. Scan the new QR to pair again."
+                        "The computer reset its pairing token. Scan the new QR to pair again."
                     }
                 transition(State.REPAIR_NEEDED)
             }
             is StreamClient.WirelessConnectError.ProtocolError -> {
                 views.repairTitle.text = "⚠ Connection error"
-                views.repairMessage.text = "Couldn't complete the secure handshake with the Mac. Scan the QR again."
+                views.repairMessage.text = "Couldn't complete the secure handshake with the computer. Scan the QR again."
                 transition(State.REPAIR_NEEDED)
             }
         }

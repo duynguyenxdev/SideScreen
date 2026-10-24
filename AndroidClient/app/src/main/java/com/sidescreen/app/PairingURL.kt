@@ -24,7 +24,7 @@ object PairingURL {
                 return null
             }
         if (token.size != 32) return null
-        val name = uri.getQueryParameter("name") ?: "Mac"
+        val name = uri.getQueryParameter("name") ?: "Computer"
         return Parsed(host, port, token, name)
     }
 }

@@ -39,7 +39,7 @@ class PairedHostStorage(context: Context) {
                 return null
             }
         if (token.size != 32) return null
-        val macName = prefs.getString("mac_name", null) ?: "Mac"
+        val macName = prefs.getString("mac_name", null) ?: "Computer"
         return Entry(host, port, token, macName)
     }
 

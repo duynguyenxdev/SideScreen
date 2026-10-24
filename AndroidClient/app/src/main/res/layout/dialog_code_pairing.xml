@@ -8,7 +8,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="The code is shown under the QR in Side Screen on your Mac."
+        android:text="The code is shown under the QR in Side Screen on your computer."
         android:textColor="#99A0AF"
         android:textSize="13sp"
         android:layout_marginBottom="16dp" />
@@ -16,7 +16,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Mac address"
+        android:text="Computer address"
         android:textColor="#99A0AF"
         android:textSize="11sp"
         android:layout_marginBottom="4dp" />

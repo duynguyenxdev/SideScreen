@@ -45,7 +45,8 @@ import java.net.Socket
 
 private fun mainDiag(msg: String) = DiagLog.log("MA", msg)
 
-private const val MAC_APP_URL = "https://sidescreen.dev"
+// Releases carry the macOS, Windows and Linux hosts side by side.
+private const val HOST_APP_URL = "https://github.com/duynguyenxdev/SideScreen/releases/latest"
 
 class MainActivity : AppCompatActivity() {
     private lateinit var wirelessController: WirelessTabController
@@ -433,9 +434,9 @@ class MainActivity : AppCompatActivity() {
         binding.watchVideoButton.setOnClickListener { showHowItWorksVideo() }
         binding.getMacAppLink.setOnClickListener {
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(MAC_APP_URL)))
+                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HOST_APP_URL)))
             } catch (_: Exception) {
-                showError("Open $MAC_APP_URL in a browser to download the Mac app.")
+                showError("Open $HOST_APP_URL in a browser to download the desktop app.")
             }
         }
 
@@ -551,7 +552,7 @@ class MainActivity : AppCompatActivity() {
         android.widget.Toast
             .makeText(
                 this,
-                "Demo mode — when connected, touching here clicks, drags and scrolls on your Mac.",
+                "Demo mode — when connected, touching here clicks, drags and scrolls on your computer.",
                 android.widget.Toast.LENGTH_LONG,
             ).show()
     }
@@ -1032,7 +1033,7 @@ class MainActivity : AppCompatActivity() {
         if (!CodecCapabilities.hasHevcDecoder && streamClient?.codecNegotiated != true) {
             mainDiag("AVC-only device but Mac did not negotiate codec — Mac app too old")
             runOnUiThread {
-                updateStatus("This device has no HEVC decoder. Update the SideScreen Mac app to enable H.264 support.")
+                updateStatus("This device has no HEVC decoder. Update the Side Screen desktop app to enable H.264 support.")
             }
         }
     }
@@ -1164,7 +1165,7 @@ class MainActivity : AppCompatActivity() {
                             this,
                             "No video output — the stream resolution may exceed " +
                                 "this tablet's decoder limit$capText. " +
-                                "Lower the resolution or refresh rate, or disable HiDPI, on the Mac.",
+                                "Lower the resolution or refresh rate, or disable HiDPI, on the computer.",
                             android.widget.Toast.LENGTH_LONG,
                         ).show()
                 }
@@ -1233,7 +1234,7 @@ class MainActivity : AppCompatActivity() {
                     if (prefs.connectionMode == ConnectionMode.WIRELESS) {
                         val entry = pairedHostStorage.load()
                         wirelessController.onConnectSuccess(
-                            entry?.macName ?: "Mac",
+                            entry?.macName ?: "Computer",
                             entry?.host ?: "—",
                         )
                     }
@@ -1331,7 +1332,7 @@ class MainActivity : AppCompatActivity() {
                 errorText.visibility = View.GONE
                 when {
                     host.isEmpty() -> {
-                        errorText.text = "Enter the Mac's address (shown as \"Listening\" under the QR)."
+                        errorText.text = "Enter the computer's address (shown under the QR in Side Screen)."
                         errorText.visibility = View.VISIBLE
                         return@setOnClickListener
                     }
@@ -1376,9 +1377,9 @@ class MainActivity : AppCompatActivity() {
                                 when (e) {
                                     is StreamClient.PairingError.CodeRejected ->
                                         "Code not accepted. Codes change after each use — " +
-                                            "check the Mac for the current one."
+                                            "check the computer for the current one."
                                     is StreamClient.PairingError.HostTooOld ->
-                                        "Update Side Screen on the Mac to use code pairing."
+                                        "Update Side Screen on the computer to use code pairing."
                                 },
                             )
                         } catch (e: StreamClient.WirelessConnectError) {
@@ -1386,7 +1387,7 @@ class MainActivity : AppCompatActivity() {
                                 when (e) {
                                     is StreamClient.WirelessConnectError.NetworkUnreachable ->
                                         "No response from $host:$port. Check both devices are " +
-                                            "on the same WiFi and the Mac app is running."
+                                            "on the same WiFi and the desktop app is running."
                                     else -> "Connection error — try again."
                                 },
                             )
@@ -1567,21 +1568,21 @@ class MainActivity : AppCompatActivity() {
                 val errorMessage =
                     when {
                         e.message?.contains("ECONNREFUSED") == true -> {
-                            "Mac server is not running.\n\nPlease start Side Screen.app on your Mac first."
+                            "Side Screen is not running on the computer.\n\nStart Side Screen on your Mac, Windows or Linux computer first."
                         }
 
                         e.message?.contains("Network is unreachable") == true -> {
-                            "Cannot reach Mac.\n\n" +
+                            "Cannot reach the computer.\n\n" +
                                 "Make sure both devices are connected via USB cable and ADB reverse is configured."
                         }
 
                         e.message?.contains("timeout") == true -> {
-                            "Connection timeout.\n\nCheck if Mac firewall is blocking port $port."
+                            "Connection timeout.\n\nCheck if the computer's firewall is blocking port $port."
                         }
 
                         else -> {
                             "Connection failed: ${e.message}\n\n" +
-                                "Try:\n• Start Side Screen.app on Mac\n" +
+                                "Try:\n• Start Side Screen on the computer\n" +
                                 "• Check USB connection\n• Run: adb reverse tcp:$port tcp:$port"
                         }
                     }

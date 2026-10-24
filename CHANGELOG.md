@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.1]
+
+### Changed
+- Android: the app no longer assumes a Mac. Every screen, hint and error now says "computer", and **Get the desktop app** opens the releases page with the macOS, Windows and Linux hosts.
+- README rewritten as a step-by-step guide: tablet setup (USB debugging), computer setup for macOS, Windows and Linux, connecting over USB or Wi-Fi, gestures, settings and per-platform troubleshooting.
+
+---
+
 ## [0.12.0]
 
 ### Added
