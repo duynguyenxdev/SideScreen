@@ -1,22 +1,57 @@
 name: Release
 
+# Every push to main publishes a release with all four apps. The version is
+# VERSION if that tag is free, otherwise the next unused patch number in the
+# same major.minor series (VERSION 0.12.0 → 0.12.1, 0.12.2, …). Bump VERSION
+# for a new minor/major and add a matching "## [x.y.z]" section to CHANGELOG.md.
 on:
   push:
-    tags:
-      - '[0-9]*'
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'website/**'
+      - 'resources/screenshots/**'
+      - 'resources/play-store/**'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  build-mac:
-    runs-on: macos-14
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read version
+      - name: Pick version
         id: version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: |
+          BASE=$(tr -d '[:space:]' < VERSION)
+          if git rev-parse -q --verify "refs/tags/$BASE" >/dev/null; then
+            SERIES=${BASE%.*}
+            LAST=$(git tag -l "$SERIES.*" | grep -E "^$SERIES\.[0-9]+$" | sort -V | tail -1)
+            VERSION="$SERIES.$(( ${LAST##*.} + 1 ))"
+          else
+            VERSION=$BASE
+          fi
+          echo "Releasing $VERSION (VERSION file: $BASE)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build-mac:
+    needs: version
+    runs-on: macos-14
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Build macOS (Universal Binary)
         run: |
@@ -31,13 +66,11 @@ jobs:
 
       - name: Create .app bundle
         run: |
-          VERSION=${{ steps.version.outputs.version }}
           APP_DIR="SideScreen.app"
           mkdir -p "$APP_DIR/Contents/MacOS"
           mkdir -p "$APP_DIR/Contents/Resources"
           cp MacHost/.build/release-universal/SideScreen "$APP_DIR/Contents/MacOS/"
 
-          # Copy icon if exists
           if [ -f "MacHost/Resources/AppIcon.icns" ]; then
             cp MacHost/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
           fi
@@ -88,33 +121,110 @@ jobs:
 
       - name: Create DMG
         run: |
-          VERSION=${{ steps.version.outputs.version }}
           mkdir -p dmg-content
           cp -R SideScreen.app dmg-content/
           ln -s /Applications dmg-content/Applications
           hdiutil create -volname "Side Screen" -srcfolder dmg-content -ov -format UDZO "SideScreen-${VERSION}-mac-universal.dmg"
           rm -rf dmg-content
 
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg
+          name: macos
           path: "*.dmg"
 
-  build-android:
-    runs-on: ubuntu-latest
+  build-desktop:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            ffmpeg: ffmpeg-master-latest-win64-gpl.zip
+            package: packageMsi
+          - os: ubuntu-22.04
+            platform: linux
+            ffmpeg: ffmpeg-master-latest-linux64-gpl.tar.xz
+            package: packageDeb
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read version
-        id: version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ffmpeg ships next to the app; on Linux a system ffmpeg is preferred when present.
+      - name: Fetch ffmpeg
+        run: |
+          mkdir -p "$RUNNER_TEMP/ffmpeg" "$RUNNER_TEMP/tools"
+          cd "$RUNNER_TEMP/ffmpeg"
+          curl -fsSL -o "${{ matrix.ffmpeg }}" "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${{ matrix.ffmpeg }}"
+          if [ "${{ matrix.platform }}" = windows ]; then
+            7z x -y "${{ matrix.ffmpeg }}" > /dev/null
+            cp */bin/ffmpeg.exe "$RUNNER_TEMP/tools/"
+          else
+            tar -xJf "${{ matrix.ffmpeg }}"
+            cp */bin/ffmpeg "$RUNNER_TEMP/tools/"
+            chmod +x "$RUNNER_TEMP/tools/ffmpeg"
+          fi
+          cp */LICENSE.txt "$RUNNER_TEMP/tools/FFMPEG-LICENSE.txt" 2>/dev/null || true
+          ls -la "$RUNNER_TEMP/tools"
+
+      - name: Test
+        working-directory: DesktopHost
+        run: ./gradlew :shared:jvmTest --no-daemon
+
+      - name: Package
+        working-directory: DesktopHost
+        run: |
+          TOOLS=$(cd "$RUNNER_TEMP/tools" && pwd -W 2>/dev/null || pwd)
+          ./gradlew :app:${{ matrix.package }} :app:createDistributable --no-daemon \
+            -Psidescreen.version="$VERSION" -Psidescreen.bundleTools="$TOOLS"
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          BIN=DesktopHost/app/build/compose/binaries/main
+          if [ "${{ matrix.platform }}" = windows ]; then
+            cp "$BIN"/msi/*.msi "dist/SideScreen-${VERSION}-windows-x64.msi"
+            (cd "$BIN/app" && 7z a -tzip "$GITHUB_WORKSPACE/dist/SideScreen-${VERSION}-windows-x64-portable.zip" SideScreen > /dev/null)
+          else
+            cp "$BIN"/deb/*.deb "dist/SideScreen-${VERSION}-linux-amd64.deb"
+            tar -C "$BIN/app" -czf "dist/SideScreen-${VERSION}-linux-x64.tar.gz" SideScreen
+          fi
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/*
+
+  build-android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      # The Android build reads its versionName/versionCode from VERSION.
+      - name: Apply release version
+        run: echo "$VERSION" > VERSION
 
       # Upload keystore is stored base64-encoded in the ANDROID_KEYSTORE_BASE64 secret.
       # When the secret is missing (e.g. forks) the build falls back to the debug key.
@@ -142,70 +252,74 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          VERSION=${{ steps.version.outputs.version }}
           cp AndroidClient/app/build/outputs/apk/release/app-release.apk "SideScreen-${VERSION}-android.apk"
           cp AndroidClient/app/build/outputs/bundle/release/app-release.aab "SideScreen-${VERSION}-android.aab"
 
       # The .aab is kept as a workflow artifact only (for uploading to Play Console);
       # it is not attached to the GitHub Release.
-      - name: Upload APK + AAB
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
+          name: android
           path: |
             *.apk
             *.aab
 
   create-release:
-    needs: [build-mac, build-android]
+    needs: [version, build-mac, build-desktop, build-android]
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read version
-        id: version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Generate changelog
-        id: changelog
+      - name: Release notes
         run: |
-          # Extract this version's section from CHANGELOG.md (heading to next ---).
-          # The section already contains Added/Fixed/Notes/Installation.
-          VERSION=$(cat VERSION)
+          # This version's CHANGELOG section if it has one, else the commits since the last release.
           NOTES=$(awk -v ver="$VERSION" '
             $0 ~ "^## \\[" ver "\\]" {flag=1; next}
             flag && /^---/ {exit}
             flag {print}
           ' CHANGELOG.md)
           if [ -z "$NOTES" ]; then
-            NOTES="See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for details."
+            PREV=$(git tag -l '[0-9]*' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            RANGE=${PREV:+$PREV..HEAD}
+            NOTES=$(git log --no-merges --pretty='- %s' ${RANGE:-HEAD~20..HEAD})
           fi
           {
-            echo "notes<<EOF"
+            echo "## What's Changed"
             echo "$NOTES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+            echo
+            echo "### Downloads"
+            echo "| Platform | File |"
+            echo "|----------|------|"
+            echo "| macOS 13+ (Apple Silicon & Intel) | \`SideScreen-${VERSION}-mac-universal.dmg\` |"
+            echo "| Windows 10/11 (installer) | \`SideScreen-${VERSION}-windows-x64.msi\` |"
+            echo "| Windows 10/11 (portable) | \`SideScreen-${VERSION}-windows-x64-portable.zip\` |"
+            echo "| Linux X11 (Debian/Ubuntu) | \`SideScreen-${VERSION}-linux-amd64.deb\` |"
+            echo "| Linux X11 (portable) | \`SideScreen-${VERSION}-linux-x64.tar.gz\` |"
+            echo "| Android tablet | \`SideScreen-${VERSION}-android.apk\` |"
+            echo
+            echo "Windows: install the free [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) to use the tablet as an extra screen; without it you can mirror an existing monitor."
+          } > release-notes.md
+          cat release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Side Screen v${{ steps.version.outputs.version }}"
-          body: |
-            ## What's Changed
-            ${{ steps.changelog.outputs.notes }}
-
-            ### Downloads
-            | Platform | File |
-            |----------|------|
-            | macOS (Universal) | `SideScreen-${{ steps.version.outputs.version }}-mac-universal.dmg` |
-            | Android | `SideScreen-${{ steps.version.outputs.version }}-android.apk` |
+          tag_name: ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: "Side Screen v${{ env.VERSION }}"
+          body_path: release-notes.md
           files: |
-            artifacts/macos-dmg/*.dmg
-            artifacts/android-apk/*.apk
+            artifacts/macos/*.dmg
+            artifacts/windows/*
+            artifacts/linux/*
+            artifacts/android/*.apk
           draft: false
           prerelease: false

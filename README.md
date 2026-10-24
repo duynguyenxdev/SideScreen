@@ -6,7 +6,7 @@
 
 <h1>Side Screen</h1>
 
-<p><em>Turn your Android tablet into a second display for macOS — USB-C or wireless over WiFi</em></p>
+<p><em>Turn your Android tablet into a second display for macOS, Windows and Linux — USB-C or wireless over WiFi</em></p>
 
 <p>
   <img src="https://img.shields.io/github/v/release/tranvuongquocdat/SideScreen?style=for-the-badge&label=version&color=blue" alt="Version">
@@ -24,6 +24,8 @@
 ![Swift](https://img.shields.io/badge/Swift-FA7343?style=for-the-badge&logo=swift&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS_13+-000000?style=for-the-badge&logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows_10+-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux_X11-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Android](https://img.shields.io/badge/Android_8+-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Universal Binary](https://img.shields.io/badge/Universal_Binary-Apple_Silicon_+_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)
 
@@ -114,6 +116,16 @@ Run a Mac with no display of its own — a Mac Studio or Mini on the go, or a la
 | **USB mode** | USB-C port + `adb` (`brew install android-platform-tools`) | USB-C cable + USB Debugging enabled |
 | **Wireless mode** | Same WiFi network as the tablet (5 GHz recommended) | Camera (for QR scan) + Google Play Services (for ML Kit barcode) |
 
+**Windows and Linux** use the cross-platform desktop host (`DesktopHost/`), which works with the same Android app:
+
+| | Windows Host | Linux Host |
+|---|---|---|
+| **OS** | Windows 10/11 (x64) | X11 session (Wayland not yet supported), x64 |
+| **Extend the desktop** | Free [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) | An xrandr `VIRTUAL` output (e.g. intel driver with `VirtualHeads`) |
+| **Without that** | Mirror any existing monitor | Mirror any existing monitor |
+| **Video** | ffmpeg bundled — NVENC / Quick Sync / AMF, x264/x265 fallback | System ffmpeg preferred (`sudo apt install ffmpeg`), bundled fallback — NVENC / VA-API |
+| **USB mode** | `adb` ([platform-tools](https://developer.android.com/tools/releases/platform-tools)) on PATH | `adb` (`sudo apt install adb`) |
+
 ---
 
 ## Installation
@@ -121,7 +133,9 @@ Run a Mac with no display of its own — a Mac Studio or Mini on the go, or a la
 Download the latest release from [**GitHub Releases**](https://github.com/tranvuongquocdat/SideScreen/releases):
 
 - **macOS**: Download `.dmg`, open it, drag Side Screen to Applications
-- **Android**: Download `.apk`, install on your tablet (enable "Unknown sources" if needed). Port forwarding is handled automatically by the Mac app.
+- **Windows**: Download the `.msi` installer (or the portable `.zip`). For a true extra screen, also install the [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd/releases).
+- **Linux**: Download the `.deb` (`sudo apt install ./SideScreen-*-linux-amd64.deb`) or the portable `.tar.gz` and run `SideScreen/bin/SideScreen`. Needs `libxtst6` for touch input.
+- **Android**: Download `.apk`, install on your tablet (enable "Unknown sources" if needed). Port forwarding is handled automatically by the host app.
 
 > **⚠️ macOS Gatekeeper**
 > If macOS says the app is "damaged", open Terminal and run:
@@ -151,6 +165,9 @@ cd SideScreen
 
 # macOS
 cd MacHost && swift build -c release
+
+# Windows / Linux (and macOS) desktop host — JDK 21
+cd DesktopHost && ./gradlew :app:run
 
 # Android
 cd AndroidClient && ./gradlew assembleDebug

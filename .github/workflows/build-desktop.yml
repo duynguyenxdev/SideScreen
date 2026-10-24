@@ -1,0 +1,32 @@
+name: Build Desktop Host
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'DesktopHost/**'
+      - '.github/workflows/build-desktop.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: DesktopHost
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build
+        run: ./gradlew :shared:jvmTest :app:createDistributable --no-daemon

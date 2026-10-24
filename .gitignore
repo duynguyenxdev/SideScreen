@@ -62,3 +62,8 @@ temp/
 
 # Local ktlint binary (CI downloads its own)
 AndroidClient/ktlint
+
+# Desktop host (Kotlin Multiplatform)
+DesktopHost/.gradle/
+DesktopHost/.kotlin/
+DesktopHost/local.properties

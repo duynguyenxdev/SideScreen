@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.12.0]
+
 ### Added
+- **Windows and Linux hosts.** A new cross-platform desktop host (`DesktopHost/`, Kotlin Multiplatform + Compose Desktop) speaks the same protocol as the Mac app, so the Android client works with it unchanged:
+  - **Windows 10/11** — streams any monitor (GPU Desktop Duplication via ffmpeg `ddagrab`, GDI fallback), and extends the desktop with a virtual monitor when the free [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) is installed. Hardware encoding with NVENC, Quick Sync or AMF; x264/x265 fallback. ffmpeg is bundled.
+  - **Linux (X11)** — streams any monitor (`x11grab`), and extends the desktop through an xrandr `VIRTUAL` output where the GPU driver offers one. NVENC or VA-API hardware encoding. Uses the system ffmpeg when installed (`sudo apt install ffmpeg`), otherwise the bundled one. Wayland sessions are not supported yet.
+  - USB (via `adb reverse`) and Wi-Fi with the same QR / 8-digit pairing as the Mac app; touch gestures (tap, double-tap, long-press right-click, drag, two-finger scroll with momentum, pinch-zoom) mapped to the native input APIs.
+- CI: every push to `main` now builds and publishes a release automatically — macOS (`.dmg`), Windows (`.msi` and portable `.zip`), Linux (`.deb` and portable `.tar.gz`) and Android (`.apk`). The version comes from `VERSION`; if that tag already exists, the patch number is bumped.
 - Android: mandatory in-app updates — a build installed from Google Play checks for a newer version whenever it is idle (never during a stream or the demo) and, if there is one, Play's full-screen update installs it and restarts the app; backing out closes the app.
 
 ### Changed

@@ -1,0 +1,6 @@
+language = Objective-C
+package = cgvirtualdisplay
+headers = CGVirtualDisplayBridge.h
+headerFilter = CGVirtualDisplayBridge.h
+compilerOpts = -framework Foundation -framework CoreGraphics
+linkerOpts = -framework Foundation -framework CoreGraphics
